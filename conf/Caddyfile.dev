@@ -1,0 +1,49 @@
+# Learn how to configure the Mercure.rocks Hub on https://mercure.rocks/docs/hub/config
+{
+	{$GLOBAL_OPTIONS}
+
+	servers :80 {
+        log_credentials
+    }
+}
+
+{$SERVER_NAME:localhost}
+
+log {
+    output file /var/log/caddy/access.log {
+        roll_size 10mb
+        roll_keep 10
+        roll_keep_for 24h
+    }
+    level INFO
+	format filter {
+		wrap console
+		fields {
+			uri query {
+				replace authorization REDACTED
+			}
+		}
+	}
+}
+
+{$EXTRA_DIRECTIVES}
+
+route {
+	encode zstd gzip
+
+	mercure {
+		transport_url {$MERCURE_TRANSPORT_URL:bolt://mercure.db}
+		publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} {env.MERCURE_PUBLISHER_JWT_ALG}
+		subscriber_jwt {env.MERCURE_SUBSCRIBER_JWT_KEY} {env.MERCURE_SUBSCRIBER_JWT_ALG}
+		cors_origins *
+		publish_origins *
+		demo
+		anonymous
+		subscriptions
+		{$MERCURE_EXTRA_DIRECTIVES}
+	}
+
+	redir / /.well-known/mercure/ui/
+	respond /healthz 200
+	respond "Not Found" 404
+}
